@@ -29,7 +29,9 @@ setup(
             'mover_waypoints = rob2002_tutorial.mover_waypoints:main',
             'detector_basic = rob2002_tutorial.detector_basic:main',
             'detector_better = rob2002_tutorial.detector_dblcounting:main',
+            'detector_3d = rob2002_tutorial.detector_3d:main',
             'counter_basic = rob2002_tutorial.counter_basic:main',
+            'counter_3d = rob2002_tutorial.counter_3d:main',
         ],
     },
 )
