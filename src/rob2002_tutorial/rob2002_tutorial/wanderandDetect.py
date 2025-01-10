@@ -7,12 +7,13 @@ from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Twist, Polygon, PolygonStamped, Point32
 from cv_bridge import CvBridge
 
-
+from rclpy.executors import MultiThreadedExecutor
 
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Int32
 # from .detector_dblcounting import DetectorBasic
+from  colour_detection import DetectorBasic
 class wander(Node):
     """
     A very simple Roamer implementation for LIMO.
@@ -71,20 +72,31 @@ class wander(Node):
                  msg.linear.x = 0.0
         else:
             self.get_logger().info("Moving forward")
-            msg.linear.x = 0.2
+            msg.linear.x = 0.5
         # self.publisher.publish(msg , total_ranges)
         self.publisher.publish(msg )
 
 
 def main(args=None):
     rclpy.init(args=args)
-    mvoer_laser = wander()
-    # detector_dblcounting = DetectorBasic()
-    rclpy.spin(mvoer_laser)
 
-    mvoer_laser.destroy_node()
-    rclpy.shutdown()
+    # Create instances of both nodes
+    detector_basic = DetectorBasic()
+    mover = wander()
 
+    # Use a MultiThreadedExecutor to spin both nodes
+    executor = MultiThreadedExecutor()
+    executor.add_node(detector_basic)
+    executor.add_node(mover)
+
+    try:
+        executor.spin()
+    except KeyboardInterrupt:
+        print("Shutting down...")
+    finally:
+        detector_basic.destroy_node()
+        mover.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

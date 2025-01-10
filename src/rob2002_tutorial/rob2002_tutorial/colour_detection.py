@@ -29,18 +29,23 @@ class DetectorBasic(Node):
     def image_color_callback(self, data):
         bgr_image = self.bridge.imgmsg_to_cv2(data, "bgr8") # convert ROS Image message to OpenCV format
 
-        # detect a color blob in the color image
-        # provide the right range values for each BGR channel (set to red bright objects)
-       # bgr_thresh = cv.inRange(bgr_image, (0, 0, 80), (50, 50, 255))
-        bgr_thresh = cv.inRange(bgr_image, (0, 0, 0), (128, 128, 128))
-        # output = cv.bitwise_and(bgr_image, bgr_image, mask=bgr_thresh)
+        # Threshold for red color
+        red_thresh = cv.inRange(bgr_image, (0, 0, 80), (50, 50, 255))
 
-        # finding all separate image regions in the binary image, using connected components algorithm
-        bgr_contours, _ = cv.findContours( bgr_thresh,
-            cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        # Threshold for green color
+        green_thresh = cv.inRange(bgr_image, (0, 80, 0), (50, 255, 50))
+
+        # Threshold for blue color
+        blue_thresh = cv.inRange(bgr_image, (80, 0, 0), (255, 50, 50))
+
+        # Combine the masks
+        combined_thresh = cv.bitwise_or(cv.bitwise_or(red_thresh, green_thresh), blue_thresh)
+
+        # Finding all separate image regions in the binary image, using connected components algorithm
+        contours, _ = cv.findContours(combined_thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
         detected_objects = []
-        for contour in bgr_contours:
+        for contour in contours:
             area = cv.contourArea(contour)
             # detect only large objects
             if area > self.min_area_size:
@@ -49,22 +54,22 @@ class DetectorBasic(Node):
                 # append the bounding box of the region into a list
                 detected_objects.append(Polygon(points = [Point32(x=float(bbx), y=float(bby)), Point32(x=float(bbw), y=float(bbh))]))
                 if self.visualisation:
-                    cv.rectangle(bgr_image, (bbx, bby), (bbx+bbw, bby+bbh), self.countour_color,  self.countour_width)
+                    cv.rectangle(bgr_image, (bbx, bby), (bbx+bbw, bby+bbh), self.countour_color, self.countour_width)
 
-        # publish individual objects from the list
-        # the header information is taken from the Image message
+        # Publish individual objects from the list
+        # The header information is taken from the Image message
         for polygon in detected_objects:
             self.object_pub.publish(PolygonStamped(polygon=polygon, header=data.header))
 
-        # log the processed images to files
+        # Log the processed images to files
         if self.data_logging:
             cv.imwrite(self.log_path + f'colour_{self.seq:06d}.png', bgr_image)
-            cv.imwrite(self.log_path + f'mask_{self.seq:06d}.png', bgr_thresh)
+            cv.imwrite(self.log_path + f'mask_{self.seq:06d}.png', combined_thresh)
 
-        # visualise the image processing results    
+        # Visualise the image processing results    
         if self.visualisation:
             cv.imshow("colour image", bgr_image)
-            cv.imshow("detection mask", bgr_thresh)
+            cv.imshow("detection mask", combined_thresh)
             cv.waitKey(1)
 
         self.seq += 1
