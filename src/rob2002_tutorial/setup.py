@@ -32,6 +32,7 @@ setup(
             'detector_3d = rob2002_tutorial.detector_3d:main',
             'counter_basic = rob2002_tutorial.counter_basic:main',
             'counter_3d = rob2002_tutorial.counter_3d:main',
+            'wander_detect = rob2002_tutorial.wander:main'
         ],
     },
 )
