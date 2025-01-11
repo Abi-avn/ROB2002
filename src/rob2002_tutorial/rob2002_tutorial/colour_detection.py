@@ -1,11 +1,11 @@
 import rclpy
 from rclpy.node import Node
 from rclpy import qos
-
+import math
 import cv2 as cv
-
+from std_msgs.msg import Header
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import Polygon, PolygonStamped, Point32
+from geometry_msgs.msg import Polygon, PolygonStamped, Point32 , PoseStamped, PoseArray
 from cv_bridge import CvBridge
 
 class DetectorBasic(Node):
@@ -17,7 +17,7 @@ class DetectorBasic(Node):
     def __init__(self):    
         super().__init__('detector_basic')
         self.bridge = CvBridge()
-
+        self.detected_objects = [] # list of all detected objects
         self.min_area_size = 100.0
         self.countour_color = (255, 255, 0) # cyan
         self.countour_width = 1 # in pixels
@@ -25,8 +25,41 @@ class DetectorBasic(Node):
         self.object_pub = self.create_publisher(PolygonStamped, '/object_polygon', 10)
         self.image_sub = self.create_subscription(Image, '/limo/depth_camera_link/image_raw', 
                                                   self.image_color_callback, qos_profile=qos.qos_profile_sensor_data)
-        
+      # subscribe to object detector
+        self.subscriber = self.create_subscription(PoseStamped, '/object_location', 
+                                                   self.counter_callback,
+                                                   qos_profile=qos.qos_profile_sensor_data)
+            # publish all detected object as an array of poses
+        self.publisher = self.create_publisher(PoseArray, '/object_count_array',
+                                                      qos.qos_profile_parameters)
+    def counter_callback(self,data):
+        new_object = data.pose
+        # check if the new object is away from all detected objects so far
+        object_exists = False
+        for object in self.detected_objects:
+            # calculate the distance between the new_object and each in the list
+            pos_a = object.position
+            pos_b = new_object.position
+            d = math.sqrt((pos_a.x - pos_b.x) ** 2 + (pos_a.y - pos_b.y) ** 2 + (pos_a.z - pos_b.z) ** 2)
+            if d < self.detection_threshold: # found a close neighbour in the already existing list, so this one won't be added
+                object_exists = True
+                break
+        if not object_exists: # new object!
+            self.detected_objects.append(new_object)
+
+        # publish a PoseArray of object poses for visualisation in rviz
+        parray = PoseArray(header=Header(frame_id=data.header.frame_id))
+        for object in self.detected_objects:
+            parray.poses.append(object)
+        self.publisher.publish(parray)            
+
+        # print to the console
+        print(f'total count {len(self.detected_objects)}')
+        for object in self.detected_objects:
+            print(object.position)
+
     def image_color_callback(self, data):
+
         bgr_image = self.bridge.imgmsg_to_cv2(data, "bgr8") # convert ROS Image message to OpenCV format
 
         # Threshold for red color
