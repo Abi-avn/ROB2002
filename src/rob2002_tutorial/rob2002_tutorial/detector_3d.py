@@ -18,6 +18,7 @@ from cv_bridge import CvBridge
 from std_msgs.msg import Header
 from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
+import cv2 as cv
 
 class Detector3D(Node):
     # use the real robot?
@@ -116,13 +117,30 @@ class Detector3D(Node):
         # the real robot depth camera returns values in mm rather than m (ROS standard): normalise
         if self.real_robot:
             self.image_depth /= 1000.0
+                  # Threshold for red color
+
+        red_thresh = cv.inRange(self.image_color, (0, 0, 80), (50, 50, 255))
+
+        # Threshold for green color
+        green_thresh = cv.inRange(self.image_color, (0, 80, 0), (50, 255, 50))
+
+        # Threshold for blue color
+        blue_thresh = cv.inRange(self.image_color, (80, 0, 0), (255, 50, 50))
+
+        # Combine the masks
+        combined_thresh = cv.bitwise_or(cv.bitwise_or(red_thresh, green_thresh), blue_thresh)
+
+        # Finding all separate image regions in the binary image, using connected components algorithm
+        object_contours, _ = cv.findContours(combined_thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
         # detect a color blob in the color image (here it is bright red)
         # provide the right values, or even better do it in HSV
-        image_mask = cv2.inRange(self.image_color, (0, 0, 80), (50, 50, 255))
+
+        # image_mask = cv2.inRange(self.image_color, (0, 0, 80), (50, 50, 255))
 
         # finding all separate image regions in the binary image, using connected components algorithm
-        object_contours, _ = cv2.findContours( image_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+       # object_contours, _ = cv2.findContours( image_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         # iterate through all detected objects/contours
         # calculate their image coordinates
@@ -157,10 +175,10 @@ class Detector3D(Node):
         if self.visualisation:
             #resize and adjust for visualisation
             self.image_depth *= 1.0/10.0 # scale for visualisation (max range 10.0 m)
-            self.image_color = cv2.resize(self.image_color, (0,0), fx=0.5, fy=0.5)
+            self.image_color = cv2.resize(self.image_color, (0,0), fx=1, fy=1)
             self.image_depth = cv2.resize(self.image_depth, (0,0), fx=0.5, fy=0.5)
             cv2.imshow("image color", self.image_color)
-            cv2.imshow("image depth", self.image_depth)
+            # cv2.imshow("image depth", self.image_depth)
             cv2.waitKey(1)
 
 def main(args=None):

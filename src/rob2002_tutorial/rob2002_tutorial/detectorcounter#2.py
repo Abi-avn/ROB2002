@@ -1,0 +1,117 @@
+import rclpy
+from rclpy.node import Node
+from rclpy import qos
+
+import cv2 as cv
+import math
+
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import Polygon, PolygonStamped, Point32
+from cv_bridge import CvBridge
+
+class DetectorBasicWithCounter(Node):
+    visualisation = True
+    data_logging = True
+    log_path = 'evaluation/data/'
+    seq = 0
+    detection_threshold = 0.2 # Distance threshold in pixels for detecting unique objects
+    ttl_frames = 10  # Number of frames an object is remembered after last detection
+
+    def __init__(self):    
+        super().__init__('detector_basic_with_counter')
+        self.bridge = CvBridge()
+
+        self.min_area_size = 100.0
+        self.countour_color = (255, 255, 0)  # Cyan
+        self.countour_width = 1  # In pixels
+
+        self.detected_objects = []  # List of unique detected objects with TTL
+        self.object_pub = self.create_publisher(PolygonStamped, '/object_polygon', 10)
+        self.image_sub = self.create_subscription(Image, '/limo/depth_camera_link/image_raw', 
+                                                  self.image_color_callback, qos_profile=qos.qos_profile_sensor_data)
+        
+    def image_color_callback(self, data):
+        bgr_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  # Convert ROS Image message to OpenCV format
+
+        # Threshold for red color
+        red_thresh = cv.inRange(bgr_image, (0, 0, 80), (50, 50, 255))
+
+        # Threshold for green color
+        green_thresh = cv.inRange(bgr_image, (0, 80, 0), (50, 255, 50))
+
+        # Threshold for blue color
+        blue_thresh = cv.inRange(bgr_image, (80, 0, 0), (255, 50, 50))
+
+        # Combine the masks
+        combined_thresh = cv.bitwise_or(cv.bitwise_or(red_thresh, green_thresh), blue_thresh)
+
+        # Finding all separate image regions in the binary image, using connected components algorithm
+        contours, _ = cv.findContours(combined_thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+        new_detected_objects = []
+        for contour in contours:
+            area = cv.contourArea(contour)
+            # Detect only large objects
+            if area > self.min_area_size:
+                bbx, bby, bbw, bbh = cv.boundingRect(contour)  # Bounding box
+                center_x, center_y = bbx + bbw / 2, bby + bbh / 2  # Center of the bounding box
+
+                # Check if the object is sufficiently far from previously detected objects
+                object_exists = False
+                for obj in self.detected_objects:
+                    prev_center_x, prev_center_y, ttl = obj
+                    distance = math.sqrt((center_x - prev_center_x) ** 2 + (center_y - prev_center_y) ** 2)
+                    if distance < self.detection_threshold:
+                        object_exists = True
+                        # Refresh the TTL for existing objects
+                        obj[2] = self.ttl_frames
+                        break
+
+                if not object_exists:
+                    # Add the new object to the list with a TTL
+                    self.detected_objects.append([center_x, center_y, self.ttl_frames])
+                    new_detected_objects.append(
+                        Polygon(points=[
+                            Point32(x=float(bbx), y=float(bby)),
+                            Point32(x=float(bbx + bbw), y=float(bby + bbh))
+                        ])
+                    )
+                    if self.visualisation:
+                        cv.rectangle(bgr_image, (bbx, bby), (bbx + bbw, bby + bbh), self.countour_color, self.countour_width)
+
+        # Decrease TTL for all detected objects and remove expired ones
+        self.detected_objects = [
+            [x, y, ttl - 1] for x, y, ttl in self.detected_objects if ttl > 1
+        ]
+
+        # Publish detected objects as polygons
+        for polygon in new_detected_objects:
+            self.object_pub.publish(PolygonStamped(polygon=polygon, header=data.header))
+
+        # Log the processed images to files
+        if self.data_logging:
+            cv.imwrite(self.log_path + f'colour_{self.seq:06d}.png', bgr_image)
+            cv.imwrite(self.log_path + f'mask_{self.seq:06d}.png', combined_thresh)
+
+        # Visualise the image processing results    
+        if self.visualisation:
+            cv.imshow("colour image", bgr_image)
+            cv.imshow("detection mask", combined_thresh)
+            cv.waitKey(1)
+
+        # Print detected object count
+        print(f'Total detected objects: {len(self.detected_objects)}')
+
+        self.seq += 1
+
+def main(args=None):
+    rclpy.init(args=args)
+    detector_basic_with_counter = DetectorBasicWithCounter()
+    
+    rclpy.spin(detector_basic_with_counter)
+    
+    detector_basic_with_counter.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

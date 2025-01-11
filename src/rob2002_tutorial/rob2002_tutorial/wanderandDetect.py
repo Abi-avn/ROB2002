@@ -13,7 +13,10 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Int32
 # from .detector_dblcounting import DetectorBasic
-from  colour_detection import DetectorBasic
+
+from counter_3d import Counter3D
+from detector_3d import Detector3D
+
 class wander(Node):
     """
     A very simple Roamer implementation for LIMO.
@@ -81,21 +84,26 @@ def main(args=None):
     rclpy.init(args=args)
 
     # Create instances of both nodes
-    detector_basic = DetectorBasic()
+    # detector_basic = DetectorBasic()
     mover = wander()
-
+    detector_3d = Detector3D()
+    counter_3d = Counter3D()
     # Use a MultiThreadedExecutor to spin both nodes
     executor = MultiThreadedExecutor()
-    executor.add_node(detector_basic)
-    executor.add_node(mover)
+    # executor.add_node(detector_basic)
+    executor.add_node(detector_3d)
+    executor.add_node(counter_3d)
+    # executor.add_node(mover)
 
     try:
         executor.spin()
     except KeyboardInterrupt:
         print("Shutting down...")
     finally:
-        detector_basic.destroy_node()
-        mover.destroy_node()
+        # detector_basic.destroy_node()
+        detector_3d.destroy_node()
+        counter_3d.destroy_node()
+        # mover.destroy_node()
         rclpy.shutdown()
 
 if __name__ == '__main__':
