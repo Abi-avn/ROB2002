@@ -54,25 +54,25 @@ class wander(Node):
         min_dist_right = min (right_range)
 
         min_dist = min(data.ranges[int(len(data.ranges)/2) - self.angular_range : int(len(data.ranges)/2) + self.angular_range])
-        # print(f'Min distance: {min_dist:.2f}')
-        self.get_logger().info(f'Front: {min_dist_front:.2f} , Left: {min_dist_left:.2f} , Right: {min_dist_right:.2f}')
+        # print(f'Min distance: {min_dist:.2f}')  # print the distance turning threshold
+        # self.get_logger().info(f'Front: {min_dist_front:.2f} , Left: {min_dist_left:.2f} , Right: {min_dist_right:.2f}')
         msg = Twist()
         if min_dist< 1.0:
             if(min_dist_left >= min_dist_right):
              msg.linear.x = 0.0
              msg.angular.z = -0.5
              time.sleep(1)
-             self.get_logger().info("Turning left")
+            #  self.get_logger().info("Turning left")
             elif (min_dist_left <= min_dist_right):
                 msg.linear.x = 0.0
                 msg.angular.z = 0.5
                 time.sleep(1)
-                self.get_logger().info("Turning right")
+                # self.get_logger().info("Turning right")
             else:
                  msg.linear.x = 0.0
         else:
-            self.get_logger().info("Moving forward")
-            msg.linear.x = 0.5
+            # self.get_logger().info("Moving forward")
+            msg.linear.x = 0.2
         # self.publisher.publish(msg , total_ranges)
         self.publisher.publish(msg )
 
