@@ -145,6 +145,9 @@ class Detector3D(Node):
         # iterate through all detected objects/contours
         # calculate their image coordinates
         # and then project from image to global coordinates
+        
+        # Object counter
+        detected_object_count = 0
         for num, cnt in enumerate(object_contours):
             area = cv2.contourArea(cnt)
             # detect only large objects
@@ -167,7 +170,11 @@ class Detector3D(Node):
                 print('image coords: ', image_coords)
                 print('camera coords: ', camera_pose.position)
                 print('global coords: ', global_pose.position)
-
+                # Increment the object counter 
+                detected_object_count += 1
+                # Print message if all objects are detected
+                if detected_object_count == 5:
+                   print("All objects are detected!")
                 if self.visualisation:
                     # draw circles
                     cv2.circle(self.image_color, (int(image_coords[1]), int(image_coords[0])), 5, 255, -1)
