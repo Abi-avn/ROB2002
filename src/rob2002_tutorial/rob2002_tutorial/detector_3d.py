@@ -148,6 +148,7 @@ class Detector3D(Node):
         
         # Object counter
         detected_object_count = 0
+        
         for num, cnt in enumerate(object_contours):
             area = cv2.contourArea(cnt)
             # detect only large objects

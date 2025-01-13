@@ -2,18 +2,18 @@ import rclpy
 from rclpy.node import Node
 from rclpy import qos
 import math
-
+import sys
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseStamped, PoseArray
 
 class Counter3D(Node):
-    detection_threshold = 1.0 # in meters    
+    detection_threshold = 1.0 # in meters 
 
     def __init__(self):      
         super().__init__('counter_3d')
-        
+        self.total_objects = 5
         self.detected_objects = [] # list of all detected objects
-
+        self.run = False
         # subscribe to object detector
         self.subscriber = self.create_subscription(PoseStamped, '/object_location', 
                                                    self.counter_callback,
@@ -48,17 +48,24 @@ class Counter3D(Node):
 
         # print to the console
         print(f'total count {len(self.detected_objects)}')
+        if self.total_objects <= len(self.detected_objects):
+            print("all objects detected")
+            self.run = True
+            sys.exit(0)
         for object in self.detected_objects:
             print(object.position)
 
 def main(args=None):
     rclpy.init(args=args)
     counter_3d = Counter3D()
+    if counter_3d.run == True : 
+     counter_3d.destroy_node()
+     rclpy.shutdown()
+     sys.exit(0)
 
-    rclpy.spin(counter_3d)
+    else:
+     rclpy.spin(counter_3d)
 
-    counter_3d.destroy_node()
-    rclpy.shutdown()
 
 
 if __name__ == '__main__':
