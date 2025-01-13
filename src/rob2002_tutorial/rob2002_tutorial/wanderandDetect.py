@@ -6,6 +6,7 @@ import cv2 as cv
 from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Twist, Polygon, PolygonStamped, Point32
 from cv_bridge import CvBridge
+import sys
 
 from rclpy.executors import MultiThreadedExecutor
 
@@ -88,23 +89,31 @@ def main(args=None):
     mover = wander()
     detector_3d = Detector3D()
     counter_3d = Counter3D()
+  
+      
     # Use a MultiThreadedExecutor to spin both nodes
     executor = MultiThreadedExecutor()
     # executor.add_node(detector_basic)
     executor.add_node(detector_3d)
     executor.add_node(counter_3d)
-    # executor.add_node(mover)
-
-    try:
-        executor.spin()
-    except KeyboardInterrupt:
+    executor.add_node(mover)
+    if counter_3d.run == True:
         print("Shutting down...")
-    finally:
-        # detector_basic.destroy_node()
         detector_3d.destroy_node()
         counter_3d.destroy_node()
-        # mover.destroy_node()
+        mover.destroy_node()
         rclpy.shutdown()
+        sys.exit(0)
+    else:
+        executor.spin()
+    # except KeyboardInterrupt:
+    #     print("Shutting down...")
+    # finally:
+    #     # detector_basic.destroy_node()
+    #     detector_3d.destroy_node()
+    #     counter_3d.destroy_node()
+    #     mover.destroy_node()
+    #     rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
