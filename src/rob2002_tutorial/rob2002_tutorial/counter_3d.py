@@ -49,7 +49,6 @@ class Counter3D(Node):
         # print to the console
         print(f'total count {len(self.detected_objects)}')
         if self.total_objects <= len(self.detected_objects):
-            print("all objects detected")
             self.run = True
             sys.exit(0)
         for object in self.detected_objects:
@@ -58,13 +57,20 @@ class Counter3D(Node):
 def main(args=None):
     rclpy.init(args=args)
     counter_3d = Counter3D()
-    if counter_3d.run == True : 
-     counter_3d.destroy_node()
-     rclpy.shutdown()
-     sys.exit(0)
-
-    else:
-     rclpy.spin(counter_3d)
+    
+    # Run the node until `self.run` becomes True
+    try:
+        while rclpy.ok():
+            rclpy.spin_once(counter_3d)
+            if counter_3d.run:
+                print("Shutting down after detecting all objects.")
+                break
+    except KeyboardInterrupt:
+        print("Interrupted by user.")
+    finally:
+        counter_3d.destroy_node()
+        rclpy.shutdown()
+        print("ROS 2 application terminated.")
 
 
 

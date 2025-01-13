@@ -16,9 +16,12 @@ from cv_bridge import CvBridge
 
 # ROS Messages
 from std_msgs.msg import Header
-from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
+from sensor_msgs.msg import Image, CameraInfo 
+from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion , PoseArray
 import cv2 as cv
+
+# System
+import sys
 
 class Detector3D(Node):
     # use the real robot?
@@ -40,6 +43,10 @@ class Detector3D(Node):
     def __init__(self):    
         super().__init__('Detector3D')
         self.bridge = CvBridge()
+
+        self.total_objects = 5
+        self.detected_objects = 0 #  detected objects counter
+        self.run = False
 
         # subscribers and publishers
         ccamera_info_topic = '/limo/depth_camera_link/camera_info'
@@ -68,6 +75,12 @@ class Detector3D(Node):
                                                   self.image_depth_callback, qos_profile=qos.qos_profile_sensor_data)
         
         self.object_location_pub = self.create_publisher(PoseStamped, '/object_location', qos.qos_profile_parameters)
+
+                # subscribe to object detector
+       # self.subscriber = self.create_subscription(PoseStamped, '/object_location',  self.counter_callback,qos_profile=qos.qos_profile_sensor_data)
+        
+        # publish all detected object as an array of poses
+        #self.publisher = self.create_publisher(PoseArray, '/object_count_array', qos.qos_profile_parameters)
 
         # tf functionality
         self.tf_buffer = Buffer()
@@ -105,6 +118,17 @@ class Detector3D(Node):
 
     def image_depth_callback(self, data):
         self.image_depth_ros = data
+
+
+
+    # def counter_callback(self, data):
+    #     new_object = data.pose
+    #     parray = PoseArray(header=Header(frame_id=data.header.frame_id))
+    #     for object in self.detected_objects:
+    #         parray.poses.append(object)
+    #     self.publisher.publish(parray) 
+
+
 
     def image_color_callback(self, data):
         # wait for the first camera models and depth image to arrive
@@ -146,9 +170,8 @@ class Detector3D(Node):
         # calculate their image coordinates
         # and then project from image to global coordinates
         
-        # Object counter
-        detected_object_count = 0
-        
+    
+
         for num, cnt in enumerate(object_contours):
             area = cv2.contourArea(cnt)
             # detect only large objects
@@ -168,13 +191,15 @@ class Detector3D(Node):
                                               pose=global_pose))        
 
                 print(f'--- object id {num} ---')
+                print('Total object: ' , self.detected_objects + 1)
                 print('image coords: ', image_coords)
                 print('camera coords: ', camera_pose.position)
                 print('global coords: ', global_pose.position)
                 # Increment the object counter 
-                detected_object_count += 1
+                self.detected_objects = self.detected_objects + 1
                 # Print message if all objects are detected
-                if detected_object_count == 5:
+                if  self.detected_objects == self.total_objects:
+                   self.run = True
                    print("All objects are detected!")
                 if self.visualisation:
                     # draw circles

@@ -15,7 +15,7 @@ from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Int32
 # from .detector_dblcounting import DetectorBasic
 
-from counter_3d import Counter3D
+#from counter_3d import Counter3D
 from detector_3d import Detector3D
 
 class wander(Node):
@@ -84,36 +84,32 @@ class wander(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    # Create instances of both nodes
-    # detector_basic = DetectorBasic()
+    # Create instances of the nodes
     mover = wander()
     detector_3d = Detector3D()
-    counter_3d = Counter3D()
-  
-      
-    # Use a MultiThreadedExecutor to spin both nodes
+   # counter_3d = Counter3D()
+
+    # Use a MultiThreadedExecutor to spin the nodes
     executor = MultiThreadedExecutor()
-    # executor.add_node(detector_basic)
     executor.add_node(detector_3d)
-    executor.add_node(counter_3d)
+   # executor.add_node(counter_3d)
     executor.add_node(mover)
-    if counter_3d.run == True:
-        print("Shutting down...")
+
+    try:
+        # Continuously spin the executor until counter_3d.run becomes True
+        while rclpy.ok():
+            executor.spin_once(timeout_sec=0.1)  # Allow other tasks to run
+            if detector_3d.run:  # Check if the condition to exit is met
+               print("All objects detected. Shutting down...")
+               break
+    except KeyboardInterrupt:
+        print("Interrupted by user.")
+    finally:
+        # Clean up resources
         detector_3d.destroy_node()
-        counter_3d.destroy_node()
+       # counter_3d.destroy_node()
         mover.destroy_node()
         rclpy.shutdown()
-        sys.exit(0)
-    else:
-        executor.spin()
-    # except KeyboardInterrupt:
-    #     print("Shutting down...")
-    # finally:
-    #     # detector_basic.destroy_node()
-    #     detector_3d.destroy_node()
-    #     counter_3d.destroy_node()
-    #     mover.destroy_node()
-    #     rclpy.shutdown()
-
+        print("Program terminated.")
 if __name__ == '__main__':
     main()
