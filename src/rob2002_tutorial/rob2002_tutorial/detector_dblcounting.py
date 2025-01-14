@@ -3,12 +3,13 @@ from rclpy.node import Node
 from rclpy import qos
 
 import cv2 as cv
-
+import time 
+import math
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Polygon, PolygonStamped, Point32
 from cv_bridge import CvBridge
 
-from .rectangle import Rectangle
+from rectangle import Rectangle
 
 class DetectorBasic(Node):
     visualisation = True
@@ -16,15 +17,15 @@ class DetectorBasic(Node):
     log_path = 'evaluation/data/'
     seq = 0
     prev_objects = []
-
+   
     def __init__(self):    
         super().__init__('detector_basic')
         self.bridge = CvBridge()
-
+        self.run = False
         self.min_area_size = 100.0
         self.countour_color = (255, 255, 0) # cyan
         self.countour_width = 1 # in pixels
-
+        self.object_counter = 0
         self.object_pub = self.create_publisher(PolygonStamped, '/object_polygon', 10)
         self.image_sub = self.create_subscription(Image, '/limo/depth_camera_link/image_raw', 
                                                   self.image_color_callback, qos_profile=qos.qos_profile_sensor_data)
@@ -34,11 +35,17 @@ class DetectorBasic(Node):
 
         # detect a color blob in the color image
         # provide the right range values for each BGR channel (set to red bright objects)
-        bgr_thresh = cv.inRange(bgr_image, (0, 0, 80), (50, 50, 255))
+
+        red_thresh = cv.inRange(bgr_image, (0, 0, 80), (50, 50, 255))
+        green_thresh = cv.inRange(bgr_image, (0, 80, 0), (50, 255, 50))
+        blue_thresh = cv.inRange(bgr_image, (80, 0, 0), (255, 50, 50))
+        combined_thresh = cv.bitwise_or(cv.bitwise_or(red_thresh, green_thresh), blue_thresh)
+       # object_contours, _ = cv.findContours(combined_thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+      #  bgr_thresh = cv.inRange(bgr_image, (0, 0, 80), (50, 50, 255))
 
         # finding all separate image regions in the binary image, using connected components algorithm
-        bgr_contours, _ = cv.findContours( bgr_thresh,
-            cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        bgr_contours, _ = cv.findContours( combined_thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
         detected_objects = []
         for contour in bgr_contours:
@@ -65,12 +72,17 @@ class DetectorBasic(Node):
             if detection:
                 # append the bounding box of the region into a list
                 new_objects.append(Polygon(points = [Point32(x=float(rectA.x1), y=float(rectA.y1)), Point32(x=float(rectA.width), y=float(rectA.height))]))
-
+                
         self.prev_objects = detected_objects
-
+        print("detected_objects" , detected_objects)
         if new_objects:
             print(f'Got {len(new_objects):d} new object(s).')
-
+           
+            self.object_counter = self.object_counter + (1/6)
+            print(f'Total object: {math.ceil(self.object_counter)}   --------- {self.object_counter}')
+           
+        if self.object_counter > 5.0:
+            self.run = True
         # publish individual objects from the list
         # the header information is taken from the Image message
         for polygon in new_objects:
@@ -79,16 +91,16 @@ class DetectorBasic(Node):
         # log the processed images to files
         if self.data_logging:
             cv.imwrite(self.log_path + f'colour_{self.seq:06d}.png', bgr_image)
-            cv.imwrite(self.log_path + f'mask_{self.seq:06d}.png', bgr_thresh)
+            cv.imwrite(self.log_path + f'mask_{self.seq:06d}.png', combined_thresh)
 
         # visualise the image processing results    
         if self.visualisation:
             cv.imshow("colour image", bgr_image)
-            cv.imshow("detection mask", bgr_thresh)
+            cv.imshow("detection mask", combined_thresh)
             cv.waitKey(1)
-
+            
         self.seq += 1
-
+       
 def main(args=None):
     rclpy.init(args=args)
     detector_basic = DetectorBasic()
