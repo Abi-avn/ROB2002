@@ -74,7 +74,7 @@ class DetectorBasic(Node):
                 new_objects.append(Polygon(points = [Point32(x=float(rectA.x1), y=float(rectA.y1)), Point32(x=float(rectA.width), y=float(rectA.height))]))
                 
         self.prev_objects = detected_objects
-        print("detected_objects" , detected_objects)
+       # print("detected_objects" , detected_objects)
         if new_objects:
             print(f'Got {len(new_objects):d} new object(s).')
            
