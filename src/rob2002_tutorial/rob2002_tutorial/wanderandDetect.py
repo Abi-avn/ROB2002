@@ -16,7 +16,7 @@ from std_msgs.msg import Int32
 # from .detector_dblcounting import DetectorBasic
 
 #from counter_3d import Counter3D
-from detector_3d import Detector3D
+from detector_dblcounting import DetectorBasic
 
 class wander(Node):
     """
@@ -64,19 +64,19 @@ class wander(Node):
         if min_dist< 1.0:
             if(min_dist_left >= min_dist_right):
              msg.linear.x = 0.0
-             msg.angular.z = -0.5
-             time.sleep(1)
+             msg.angular.z = -0.6
+             time.sleep(0.1)
             #  self.get_logger().info("Turning left")
             elif (min_dist_left <= min_dist_right):
                 msg.linear.x = 0.0
-                msg.angular.z = 0.5
-                time.sleep(1)
+                msg.angular.z = 0.6
+                time.sleep(0.1)
                 # self.get_logger().info("Turning right")
             else:
                  msg.linear.x = 0.0
         else:
             # self.get_logger().info("Moving forward")
-            msg.linear.x = 0.2
+            msg.linear.x = 0.3
         # self.publisher.publish(msg , total_ranges)
         self.publisher.publish(msg )
 
@@ -86,7 +86,7 @@ def main(args=None):
 
     # Create instances of the nodes
     mover = wander()
-    detector_3d = Detector3D()
+    detector_3d = DetectorBasic
    # counter_3d = Counter3D()
 
     # Use a MultiThreadedExecutor to spin the nodes

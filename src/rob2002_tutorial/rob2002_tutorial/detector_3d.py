@@ -23,6 +23,8 @@ import cv2 as cv
 # System
 import sys
 
+from scipy.spatial import distance  # Add this at the top of your code
+
 class Detector3D(Node):
     # use the real robot?
     real_robot = False
@@ -43,9 +45,9 @@ class Detector3D(Node):
     def __init__(self):    
         super().__init__('Detector3D')
         self.bridge = CvBridge()
-
         self.total_objects = 5
-        self.detected_objects = 0 #  detected objects counter
+        self.detected_objects = []  # List to track detected objects' global positions
+        self.min_distance = 0.5  # Minimum distance to consider objects as separate
         self.run = False
 
         # subscribers and publishers
@@ -131,88 +133,60 @@ class Detector3D(Node):
 
 
     def image_color_callback(self, data):
-        # wait for the first camera models and depth image to arrive
-        if self.color2depth_aspect is None and self.image_depth_ros is None:
+        if self.color2depth_aspect is None or self.image_depth_ros is None:
             return
         
-        # covert image to open_cv
+        # Convert image to OpenCV format
         self.image_color = self.bridge.imgmsg_to_cv2(data, "bgr8")
         self.image_depth = self.bridge.imgmsg_to_cv2(self.image_depth_ros, "32FC1")
-        # the real robot depth camera returns values in mm rather than m (ROS standard): normalise
         if self.real_robot:
             self.image_depth /= 1000.0
-                  # Threshold for red color
 
         red_thresh = cv.inRange(self.image_color, (0, 0, 80), (50, 50, 255))
-
-        # Threshold for green color
         green_thresh = cv.inRange(self.image_color, (0, 80, 0), (50, 255, 50))
-
-        # Threshold for blue color
         blue_thresh = cv.inRange(self.image_color, (80, 0, 0), (255, 50, 50))
-
-        # Combine the masks
         combined_thresh = cv.bitwise_or(cv.bitwise_or(red_thresh, green_thresh), blue_thresh)
-
-        # Finding all separate image regions in the binary image, using connected components algorithm
         object_contours, _ = cv.findContours(combined_thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
-        # detect a color blob in the color image (here it is bright red)
-        # provide the right values, or even better do it in HSV
-
-        # image_mask = cv2.inRange(self.image_color, (0, 0, 80), (50, 50, 255))
-
-        # finding all separate image regions in the binary image, using connected components algorithm
-
-       # object_contours, _ = cv2.findContours( image_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-        # iterate through all detected objects/contours
-        # calculate their image coordinates
-        # and then project from image to global coordinates
-        
-    
-
-        for num, cnt in enumerate(object_contours):
+        for num, cnt in enumerate(object_contours):  
             area = cv2.contourArea(cnt)
-            # detect only large objects
             if area > self.min_area_size:
                 cmoms = cv2.moments(cnt)
-                # calculate the y,x centroid
                 image_coords = (cmoms["m01"] / cmoms["m00"], cmoms["m10"] / cmoms["m00"])
-                # transform from image to camera coordinates
                 camera_pose = self.image2camera_tf(image_coords, self.image_color, self.image_depth)
-
-                # transform from the camera to global (odom or map) coordinates
                 global_pose = do_transform_pose(camera_pose, 
-                                                self.tf_buffer.lookup_transform(self.global_frame, self.camera_frame, rclpy.time.Time())) 
+                                                self.tf_buffer.lookup_transform(self.global_frame, self.camera_frame, rclpy.time.Time()))
+                global_position = (global_pose.position.x, global_pose.position.y, global_pose.position.z)        
+                is_new_object = True
+                for prev_pos in self.detected_objects:
+                 if distance.euclidean(global_position, prev_pos) < self.min_distance:
+                    is_new_object = False
+                    break
 
-                # publish so we can see that in rviz
-                self.object_location_pub.publish(PoseStamped(header=Header(frame_id=self.global_frame),
-                                              pose=global_pose))        
+        #    If the object is new, add it to the list
+                if is_new_object:
+                   self.detected_objects.append(global_position)
+                print(f"--- object id {num} ---")
+                print(f'Total objects detected: {len(self.detected_objects)-1}')
+                print(f'Image coords: {image_coords}')
+                print(f'Camera coords: {camera_pose.position}')
+                print(f'Global coords: {global_pose.position}')
 
-                print(f'--- object id {num} ---')
-                print('Total object: ' , self.detected_objects + 1)
-                print('image coords: ', image_coords)
-                print('camera coords: ', camera_pose.position)
-                print('global coords: ', global_pose.position)
-                # Increment the object counter 
-                self.detected_objects = self.detected_objects + 1
-                # Print message if all objects are detected
-                if  self.detected_objects == self.total_objects:
-                   self.run = True
-                   print("All objects are detected!")
+                    # Print message if all objects are detected
+                if len(self.detected_objects) == self.total_objects:
+                        self.run = True
+                        print("All objects are detected!")
+
                 if self.visualisation:
-                    # draw circles
-                    cv2.circle(self.image_color, (int(image_coords[1]), int(image_coords[0])), 5, 255, -1)
+                        cv2.circle(self.image_color, (int(image_coords[1]), int(image_coords[0])), 5, 255, -1)
 
         if self.visualisation:
-            #resize and adjust for visualisation
-            self.image_depth *= 1.0/10.0 # scale for visualisation (max range 10.0 m)
-            self.image_color = cv2.resize(self.image_color, (0,0), fx=1, fy=1)
-            self.image_depth = cv2.resize(self.image_depth, (0,0), fx=0.5, fy=0.5)
+            self.image_depth *= 1.0 / 10.0
+            self.image_color = cv2.resize(self.image_color, (0, 0), fx=1, fy=1)
+            self.image_depth = cv2.resize(self.image_depth, (0, 0), fx=0.5, fy=0.5)
             cv2.imshow("image color", self.image_color)
-            # cv2.imshow("image depth", self.image_depth)
             cv2.waitKey(1)
+
 
 def main(args=None):
     rclpy.init(args=args)
