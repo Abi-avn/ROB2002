@@ -6,7 +6,7 @@ from geometry_msgs.msg import Twist
 from rclpy.executors import MultiThreadedExecutor
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
-from detector_dblcounting import DetectorBasic
+from detector import DetectorBasic
 
 class wander(Node):
     def __init__(self):

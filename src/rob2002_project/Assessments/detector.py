@@ -40,9 +40,6 @@ class DetectorBasic(Node):
         green_thresh = cv.inRange(bgr_image, (0, 80, 0), (50, 255, 50))
         blue_thresh = cv.inRange(bgr_image, (80, 0, 0), (255, 50, 50))
         combined_thresh = cv.bitwise_or(cv.bitwise_or(red_thresh, green_thresh), blue_thresh)
-       # object_contours, _ = cv.findContours(combined_thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-
-      #  bgr_thresh = cv.inRange(bgr_image, (0, 0, 80), (50, 50, 255))
 
         # finding all separate image regions in the binary image, using connected components algorithm
         bgr_contours, _ = cv.findContours( combined_thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
@@ -78,8 +75,8 @@ class DetectorBasic(Node):
         if new_objects:
             print(f'Got {len(new_objects):d} new object(s).')
            
-            self.object_counter = self.object_counter + (1/6)
-            print(f'Total object: {math.ceil(self.object_counter)}   --------- {self.object_counter}')
+            self.object_counter = self.object_counter + (1/6) #frame delay based counting
+           #print(f'Total object: {math.ceil(self.object_counter)}   --------- {self.object_counter}')  #print for debugging
            
         if self.object_counter > 5.0:
             self.run = True
