@@ -21,11 +21,11 @@ class DetectorBasic(Node):
     def __init__(self):    
         super().__init__('detector_basic')
         self.bridge = CvBridge()
-        self.run = False
-        self.min_area_size = 100.0
+        self.run = False # Used to terminate program
+        self.min_area_size = 100.0 #IoU vaue 
         self.countour_color = (255, 255, 0) # cyan
         self.countour_width = 1 # in pixels
-        self.object_counter = 0
+        self.object_counter = 0 #keep track of detected onjects
         self.object_pub = self.create_publisher(PolygonStamped, '/object_polygon', 10)
         self.image_sub = self.create_subscription(Image, '/limo/depth_camera_link/image_raw', 
                                                   self.image_color_callback, qos_profile=qos.qos_profile_sensor_data)
@@ -71,11 +71,10 @@ class DetectorBasic(Node):
                 new_objects.append(Polygon(points = [Point32(x=float(rectA.x1), y=float(rectA.y1)), Point32(x=float(rectA.width), y=float(rectA.height))]))
                 
         self.prev_objects = detected_objects
-       # print("detected_objects" , detected_objects)
+
         if new_objects:
             print(f'Got {len(new_objects):d} new object(s).')
-           
-            self.object_counter = self.object_counter + (1/6) #frame delay based counting
+            self.object_counter = self.object_counter + (1/6) #frame delay based counting to filter double counting
            #print(f'Total object: {math.ceil(self.object_counter)}   --------- {self.object_counter}')  #print for debugging
            
         if self.object_counter > 5.0:
