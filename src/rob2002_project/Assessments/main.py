@@ -12,16 +12,18 @@ class wander(Node):
     def __init__(self):
 
         super().__init__('mover_laser')
+        #movement publisher
         self.publisher = self.create_publisher(Twist, "/cmd_vel", 10)
+        #LIDAR data
         self.subscriber = self.create_subscription(LaserScan, "/scan", self.laserscan_callback, 10)
 
         self.angular_range = 10
     
     def laserscan_callback(self, data):
         total_ranges = len(data.ranges) ; 
-        #Split the LIDAR rays into 3 parts 
-        left_range = data.ranges[:total_ranges //3]
-        right_range = data.ranges[2*total_ranges //3:]
+        #Split the LIDAR rays into 2 parts 
+        left_range = data.ranges[:total_ranges //3] #left side
+        right_range = data.ranges[2*total_ranges //3:] #right side
         #Workout the minimum distance from the split ranges
         min_dist_left = min(left_range)
         min_dist_right = min (right_range)
@@ -29,6 +31,7 @@ class wander(Node):
         min_dist = min(data.ranges[int(len(data.ranges)/2) - self.angular_range : int(len(data.ranges)/2) + self.angular_range])
     
         msg = Twist()
+        #movement logic
         if min_dist< 1.0:
             if(min_dist_left >= min_dist_right):
              msg.linear.x = 0.0
@@ -60,7 +63,7 @@ def main(args=None):
     executor.add_node(mover)
 
     try:
-        # Continuously spin the executor until counter_3d.run becomes True
+        # Continuously spin the executor until detector_3d.run becomes True
         while rclpy.ok():
             executor.spin_once(timeout_sec=0.1)  # Allow other tasks to run
             if detector_3d.run:  # Check if the condition to exit is met
